@@ -56,8 +56,6 @@ local function create_job(opts)
     table.insert(cmd, '--nvim')
     table.insert(cmd, '-')
 
-    vim.print(vim.inspect(cmd))
-
     return vim.fn.jobstart(cmd, {
         rpc = true,
         on_stderr = function(_, data)
@@ -73,23 +71,102 @@ end
 
 --- @param opts PluginOptions options for configuring the prax nvim plugin
 function M.setup(opts)
-    vim.api.nvim_create_user_command("PraxStart", function()
-        job = create_job(opts)
-        vim.fn.rpcnotify(job, "job_id", job)
-        vim.print("prax started " .. job)
-    end, {
-        desc = "Start a prax session"
-    })
-
-
-    vim.api.nvim_create_user_command("PraxStop", function()
-        if job then
-            vim.print("stoping chan " .. job)
+    vim.api.nvim_create_user_command('Prax', function(o)
+        if #o.fargs == 0 then
+            if job == nil then
+                job = create_job(opts)
+                vim.fn.rpcnotify(job, "job_id", job)
+            else
+                vim.fn.rpcnotify(job, "shutdown")
+                vim.fn.jobwait({ job })
+            end
+        elseif o.fargs[1] == "spawn" then
+            job = create_job(opts)
+            vim.fn.rpcnotify(job, "job_id", job)
+        elseif o.fargs[1] == "kill" then
             vim.fn.rpcnotify(job, "shutdown")
             vim.fn.jobwait({ job })
+        else
+            vim.print("invalid arguments '" .. table.concat(o.fargs, ' ') .. "'")
         end
     end, {
-        desc = "Stop the prax session"
+        nargs = '*',
+        desc = "Prax command",
+        complete = function(_, line)
+            local l = vim.split(line, "%s+")
+
+            if #l == 2 then
+                return { 'spawn', 'kill' }
+            end
+
+            local last = l[#l - 1]
+            local current_complete = l[#l]
+
+            if last == '-f' or last == "--file" then
+                return vim.fn.getcompletion(current_complete, "file")
+            elseif last == '-L' or last == '--log' then
+                return vim.fn.getcompletion(current_complete, "file")
+            elseif last == '-w' or last == '--watch' then
+                return nil
+            elseif last == '-k' or last == '--key' then
+                return vim.fn.getcompletion(current_complete, "file")
+            elseif last == '-c' or last == '--cert' then
+                return vim.fn.getcompletion(current_complete, "file")
+            else
+                local file = true
+                local log = true
+                local watch = true
+                local key = true
+                local cert = true
+
+                for _, value in ipairs(l) do
+                    if value == '-f' or value == '--file' then
+                        file = false
+                    end
+                    if value == '-L' or value == '--log' then
+                        log = false
+                    end
+                    if value == '-w' or value == '--watch' then
+                        watch = false
+                    end
+                    if value == '-k' or value == '--key' then
+                        key = false
+                    end
+                    if value == '-c' or value == '--cert' then
+                        cert = false
+                    end
+                end
+
+                local opts = {}
+
+                if file then
+                    table.insert(opts, '-f')
+                    table.insert(opts, '--file')
+                end
+
+                if log then
+                    table.insert(opts, '-L')
+                    table.insert(opts, '--log')
+                end
+
+                if watch then
+                    table.insert(opts, '-w')
+                    table.insert(opts, '--watch')
+                end
+
+                if key then
+                    table.insert(opts, '-k')
+                    table.insert(opts, '--key')
+                end
+
+                if cert then
+                    table.insert(opts, '-c')
+                    table.insert(opts, '-cert')
+                end
+
+                return opts
+            end
+        end
     })
 end
 
