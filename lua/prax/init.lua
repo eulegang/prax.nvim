@@ -81,6 +81,7 @@ function M.setup(default_opts)
             else
                 vim.fn.rpcnotify(job, "shutdown")
                 vim.fn.jobwait({ job })
+                job = nil
             end
         elseif o.fargs[1] == "spawn" then
             local parsed = options.parse(o.fargs)
@@ -92,6 +93,7 @@ function M.setup(default_opts)
         elseif o.fargs[1] == "kill" then
             vim.fn.rpcnotify(job, "shutdown")
             vim.fn.jobwait({ job })
+            job = nil
         else
             vim.print("invalid arguments '" .. table.concat(o.fargs, ' ') .. "'")
         end
